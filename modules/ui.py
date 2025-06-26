@@ -1115,6 +1115,26 @@ from modules import prompt_parser
 import modules.processing_scripts.comments as comments
 from modules_forge import main_entry
 
+#  ------  add this block right after the standard imports  ------
+from modules import ui_common   # already present later, so safe to add here
+
+# Icon glyphs that external scripts still expect
+random_symbol            = '\U0001f3b2\ufe0f'  # 🎲
+reuse_symbol             = '\u267b\ufe0f'      # ♻
+paste_symbol             = '\u2199\ufe0f'      # ↙
+refresh_symbol           = '\U0001f504'        # 🔄
+save_style_symbol        = '\U0001f4be'        # 💾
+apply_style_symbol       = '\U0001f4cb'        # 📋
+clear_prompt_symbol      = '\U0001f5d1\ufe0f'  # 🗑
+extra_networks_symbol    = '\U0001F3B4'        # 🎴
+switch_values_symbol     = '\u21C5'            # ⇅   <- breaks postprocessing_upscale.py
+restore_progress_symbol  = '\U0001F300'        # 🌀
+
+# Tiny helper many modules import from ui
+plaintext_to_html = ui_common.plaintext_to_html
+#  ---------------------------------------------------------------
+
+
 # ------------------------------------------------------------------
 # 1.  Fix warning filters
 warnings.filterwarnings(
