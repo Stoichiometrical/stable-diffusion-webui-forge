@@ -1335,6 +1335,8 @@ def create_ui():
         settings.add_quicksettings()
         # --- patch paste-params helper (txt2img-only build) -------------------------
         parameters_copypaste.connect_paste_params_buttons = lambda *_, **__: None
+        import modules.infotext_utils as _it
+        _it.paste_fields.setdefault("txt2img", {"fields": {}})
 
         with gr.Tabs(elem_id="tabs"):
             for iface, lbl in ((txt2img_interface, "Txt2img"),
