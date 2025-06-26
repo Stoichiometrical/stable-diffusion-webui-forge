@@ -1345,7 +1345,7 @@ def create_ui():
                     iface.render()
 
         settings.add_functionality(demo)
-        main_entry.forge_main_entry()
+        # main_entry.forge_main_entry()
 
     return demo
 # ------------------------------------------------
