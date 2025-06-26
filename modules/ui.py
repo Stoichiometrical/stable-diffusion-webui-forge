@@ -1101,14 +1101,17 @@ from PIL import Image
 
 from modules.call_queue import wrap_gradio_gpu_call, wrap_queued_call
 from modules.paths import script_path
-from modules.shared import opts, cmd_opts
-import modules.shared as shared
+
+
 
 # Forge / A1111 modules still needed for Txt2Img
 from modules import (
     sd_models, sd_samplers, sd_schedulers, ui_common, ui_settings,
     ui_toprow, ui_loadsave, script_callbacks, extra_networks, launch_utils
 )
+from modules.shared import opts, cmd_opts
+shared.script_callbacks = script_callbacks
+
 import modules.infotext_utils as parameters_copypaste
 from modules.infotext_utils import image_from_url_text, PasteField
 from modules import prompt_parser
