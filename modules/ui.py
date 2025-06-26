@@ -1112,11 +1112,17 @@ import modules.shared as shared
 from modules import prompt_parser
 from modules.infotext_utils import image_from_url_text, PasteField
 from modules_forge import main_entry
+from modules import gradio_extensions
 
 create_setting_component = ui_settings.create_setting_component
+import modules.processing_scripts.comments as comments
+
 
 warnings.filterwarnings("default" if opts.show_warnings else "ignore", category=UserWarning)
-warnings.filterwarnings("default" if opts.show_gradio_deprecation_warnings else "ignore", category=warnings.UserWarning)
+warnings.filterwarnings(
+    "default" if opts.show_gradio_deprecation_warnings else "ignore",
+    category=gradio_extensions.GradioDeprecationWarning
+)
 
 # this is a fix for Windows users. Without it, javascript files will be served with text/html content-type and the browser will not show any UI
 mimetypes.init()
