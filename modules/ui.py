@@ -956,10 +956,10 @@ def create_ui():
 
     interfaces = [
         (txt2img_interface, "Txt2img", "txt2img"),
-        # (img2img_interface, "Img2img", "img2img"),
-        # (space_interface, "Spaces", "space"),
-        # (extras_interface, "Extras", "extras"),
-        # (pnginfo_interface, "PNG Info", "pnginfo"),
+        (img2img_interface, "Img2img", "img2img"),
+        (space_interface, "Spaces", "space"),
+        (extras_interface, "Extras", "extras"),
+        (pnginfo_interface, "PNG Info", "pnginfo"),
         (modelmerger_ui.blocks, "Checkpoint Merger", "modelmerger"),
     ]
 
@@ -967,7 +967,7 @@ def create_ui():
     interfaces += [(settings.interface, "Settings", "settings")]
 
     extensions_interface = ui_extensions.create_ui()
-    # interfaces += [(extensions_interface, "Extensions", "extensions")]
+    interfaces += [(extensions_interface, "Extensions", "extensions")]
 
     shared.tab_names = []
     for _interface, label, _ifid in interfaces:
