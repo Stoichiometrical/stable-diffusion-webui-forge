@@ -1333,7 +1333,8 @@ def create_ui():
                    title="Stable Diffusion – Forge (txt2img-only)") as demo:
 
         settings.add_quicksettings()
-        parameters_copypaste.connect_paste_params_buttons()
+        # --- patch paste-params helper (txt2img-only build) -------------------------
+        parameters_copypaste.connect_paste_params_buttons = lambda *_, **__: None
 
         with gr.Tabs(elem_id="tabs"):
             for iface, lbl in ((txt2img_interface, "Txt2img"),
