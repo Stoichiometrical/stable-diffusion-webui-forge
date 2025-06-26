@@ -1121,6 +1121,18 @@ import modules.processing_scripts.comments as comments
 # ---------- ensure attributes some downstream code still touches ------------
 shared.script_callbacks = script_callbacks
 
+from modules import txt2img as _t2i
+import inspect
+
+_orig = _t2i.txt2img_create_processing
+def _patched_create(id_task, request, *rest):
+    need = len(inspect.signature(_orig).parameters) - 2          # skip id_task,request
+    if len(rest) < need:                                         # pad with None
+        rest = list(rest) + [None]*(need-len(rest))
+    return _orig(id_task, request, *rest)
+
+_t2i.txt2img_create_processing = _patched_create
+
 # ---------- glyphs that 3rd-party scripts import from modules.ui -----------
 random_symbol           = '\U0001f3b2\ufe0f'   # 🎲
 reuse_symbol            = '\u267b\ufe0f'       # ♻
