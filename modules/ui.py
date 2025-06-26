@@ -1110,6 +1110,7 @@ from modules import (
     ui_toprow, ui_loadsave, script_callbacks, extra_networks, launch_utils
 )
 from modules.shared import opts, cmd_opts
+import modules.shared as shared
 shared.script_callbacks = script_callbacks
 
 import modules.infotext_utils as parameters_copypaste
