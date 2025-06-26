@@ -1124,7 +1124,17 @@ shared.script_callbacks = script_callbacks
 from modules import txt2img as _t2i
 import inspect
 
-_orig = _t2i.txt2img_create_processing
+_orig_create = _t2i.txt2img_create_processing
+
+def _safe_create(id_task, request, *passed):
+    """Pad missing Hi-Res params with None so old/lean UIs still work."""
+    need = len(inspect.signature(_orig_create).parameters) - 2   # skip id_task,request
+    if len(passed) < need:                                       # UI gave fewer
+        passed = list(passed) + [None] * (need - len(passed))
+    return _orig_create(id_task, request, *passed)
+
+_t2i.txt2img_create_processing = _safe_create
+
 def _patched_create(id_task, request, *rest):
     need = len(inspect.signature(_orig).parameters) - 2          # skip id_task,request
     if len(rest) < need:                                         # pad with None
