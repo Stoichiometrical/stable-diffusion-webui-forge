@@ -1109,7 +1109,7 @@ from modules import (
     ui_checkpoint_merger, scripts, sd_samplers, processing, ui_extra_networks,
     ui_toprow, launch_utils
 )
-from modules.ui_components import FormRow, FormHTML, InputAccordion, ResizeHandleRow
+from modules.ui_components import FormRow, FormHTML, InputAccordion, ResizeHandleRow, ToolButton
 from modules.paths import script_path
 from modules.ui_common import create_refresh_button
 from modules.ui_gradio_extensions import reload_javascript
@@ -1234,20 +1234,14 @@ def create_ui():
                 # prompt row
                 toprow.create_inline_toprow_prompts()
 
+
                 # dimensions
                 with FormRow():
                     with gr.Column(scale=4):
                         width  = gr.Slider(64, 2048, step=8, value=512, label="Width")
                         height = gr.Slider(64, 2048, step=8, value=512, label="Height")
-                    with gr.Column(scale=1, elem_classes="dimensions-tools"):
-                        # 🛠  FIX: give elem_id as a STRING, not a list
-                        res_switch_btn = create_refresh_button(
-                            switch_values_symbol,  # ⇅ glyph
-                            lambda w, h: (h, w),  # swap callback
-                            [width, height], [width, height],  # inputs → outputs
-                            elem_id="txt2img_res_switch_btn",  # ← critical
-                            tooltip="Switch width/height"
-                        )
+                    with gr.Column(elem_id="txt2img_dimensions_row", scale=1, elem_classes="dimensions-tools"):
+                 res_switch_btn = ToolButton(value=switch_values_symbol, elem_id="txt2img_res_switch_btn", tooltip="Switch width/height")
 
                 # cfg row
                 with gr.Row():
