@@ -1240,8 +1240,7 @@ def create_ui():
                     with gr.Column(scale=4):
                         width  = gr.Slider(64, 2048, step=8, value=512, label="Width")
                         height = gr.Slider(64, 2048, step=8, value=512, label="Height")
-                    with gr.Column(elem_id="txt2img_dimensions_row", scale=1, elem_classes="dimensions-tools"):
-                 res_switch_btn = ToolButton(value=switch_values_symbol, elem_id="txt2img_res_switch_btn", tooltip="Switch width/height")
+                    with gr.Column(elem_id="txt2img_dimensions_row", scale=1, elem_classes="dimensions-tools"):res_switch_btn = ToolButton(value=switch_values_symbol, elem_id="txt2img_res_switch_btn", tooltip="Switch width/height")
 
                 # cfg row
                 with gr.Row():
