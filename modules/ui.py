@@ -1240,8 +1240,14 @@ def create_ui():
                         width  = gr.Slider(64, 2048, step=8, value=512, label="Width")
                         height = gr.Slider(64, 2048, step=8, value=512, label="Height")
                     with gr.Column(scale=1, elem_classes="dimensions-tools"):
-                        create_refresh_button('\u21C5', lambda w, h: (h, w),
-                                              [width, height], [width, height])
+                        # 🛠  FIX: give elem_id as a STRING, not a list
+                        res_switch_btn = create_refresh_button(
+                            switch_values_symbol,  # ⇅ glyph
+                            lambda w, h: (h, w),  # swap callback
+                            [width, height], [width, height],  # inputs → outputs
+                            elem_id="txt2img_res_switch_btn",  # ← critical
+                            tooltip="Switch width/height"
+                        )
 
                 # cfg row
                 with gr.Row():
