@@ -1200,6 +1200,13 @@ def update_token_counter(text, steps, styles, *, is_positive=True):
 def update_negative_prompt_token_counter(*a):
     return update_token_counter(*a, is_positive=False)
 
+
+# -- optional REST helpers -------------------------------------------------
+def setup_ui_api(app):
+    """Placeholder to satisfy webui.py when running in Txt2Img-only mode."""
+    return
+
+
 # ----------------------------- UI ------------------------------------------
 def create_ui():
     import modules.txt2img       # heavy import kept lazy
