@@ -1315,7 +1315,9 @@ def create_ui():
             toprow.submit.click(**args)
 
             # live counters
-            steps = scripts.scripts_txt2img.script('Sampler').steps
+            _s = scripts.scripts_txt2img.script('Sampler')
+            steps = _s.steps if _s else gr.Slider(minimum=1, maximum=150, step=1,
+                                                  value=30, visible=False)
             toprow.ui_styles.dropdown.change(
                 wrap_queued_call(update_token_counter),
                 [toprow.prompt, steps, toprow.ui_styles.dropdown],
