@@ -1085,16 +1085,19 @@
 #     app.mount("/webui-assets", fastapi.staticfiles.StaticFiles(directory=launch_utils.repo_dir('stable-diffusion-webui-assets')), name="webui-assets")
 
 
-# modules/ui.py  – minimal Txt-2-Img-only build
-# ------------------------------------------------
+# modules/ui.py  – lean “txt2img-only” Forge build (fully patched)
+# ---------------------------------------------------------------------------
+
 import datetime, mimetypes, os, sys, warnings
 from contextlib import ExitStack
-from functools   import reduce
+from functools  import reduce
+import inspect
 
-# --- keep ALL heavy side-effect imports -------------------------------------
+# ── heavy, side-effect imports we must keep ────────────────────────────────
 import gradio as gr
 import gradio.utils
 from PIL import Image
+
 from modules.call_queue import wrap_gradio_gpu_call, wrap_queued_call
 from modules import (
     gradio_extensions, sd_schedulers, sd_hijack, sd_models, script_callbacks,
@@ -1106,83 +1109,82 @@ from modules import (
 from modules.ui_components import (
     FormRow, FormHTML, InputAccordion, ResizeHandleRow, ToolButton
 )
-from modules.paths import script_path
-from modules.ui_common            import create_refresh_button
+from modules.paths               import script_path
+from modules.ui_common           import create_refresh_button
 from modules.ui_gradio_extensions import reload_javascript
 from modules.shared import opts, cmd_opts
-import modules.infotext_utils as parameters_copypaste
-import modules.shared as shared
+import modules.infotext_utils     as parameters_copypaste
+import modules.shared            as shared
 from modules import prompt_parser
-from modules.infotext_utils import image_from_url_text, PasteField
-from modules_forge          import main_entry
 import modules.processing_scripts.comments as comments
-# ----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 
-# ---------- ensure attributes some downstream code still touches ------------
+
+# ───────── ensure a few globals downstream code still expects ──────────────
 shared.script_callbacks = script_callbacks
 
-from modules import txt2img as _t2i
-import inspect
-
-_orig_create = _t2i.txt2img_create_processing
-
-def _safe_create(id_task, request, *passed):
-    """Pad missing Hi-Res params with None so old/lean UIs still work."""
-    need = len(inspect.signature(_orig_create).parameters) - 2   # skip id_task,request
-    if len(passed) < need:                                       # UI gave fewer
-        passed = list(passed) + [None] * (need - len(passed))
-    return _orig_create(id_task, request, *passed)
-
-_t2i.txt2img_create_processing = _safe_create
-
-def _patched_create(id_task, request, *rest):
-    need = len(inspect.signature(_orig).parameters) - 2          # skip id_task,request
-    if len(rest) < need:                                         # pad with None
-        rest = list(rest) + [None]*(need-len(rest))
-    return _orig(id_task, request, *rest)
-
-_t2i.txt2img_create_processing = _patched_create
-
-# ---------- glyphs that 3rd-party scripts import from modules.ui -----------
-random_symbol           = '\U0001f3b2\ufe0f'   # 🎲
-reuse_symbol            = '\u267b\ufe0f'       # ♻
-paste_symbol            = '\u2199\ufe0f'       # ↙
-refresh_symbol          = '\U0001f504'         # 🔄
-save_style_symbol       = '\U0001f4be'         # 💾
-apply_style_symbol      = '\U0001f4cb'         # 📋
-clear_prompt_symbol     = '\U0001f5d1\ufe0f'   # 🗑
-extra_networks_symbol   = '\U0001F3B4'         # 🎴
-switch_values_symbol    = '\u21C5'             # ⇅   ★  needed by postprocessing_upscale.py
-restore_progress_symbol = '\U0001F300'         # 🌀
-detect_image_size_symbol = '\U0001F4D0'        # 📐
-
+# 1️⃣  **Define plaintext_to_html *before* importing txt2img to avoid a
+#     circular-import crash**
 plaintext_to_html = ui_common.plaintext_to_html
 
-# ---------- patch stubs for features we’ve stripped out ---------------------
-def _empty_list():
-    """Return an empty list for any stripped feature the settings UI still queries."""
-    return []
 
-# post-processing scripts list
-shared_items.postprocessing_scripts = _empty_list
-# Real-ESRGAN / DAT model-name helpers (referenced by settings but harmless)
-shared_items.realesrgan_models_names = _empty_list
-shared_items.dat_models_names        = _empty_list
+# 2️⃣  Import txt2img *after* the helper is ready, then patch its
+#     `txt2img_create_processing` so our minimal UI can pass fewer args
+from modules import txt2img as _t2i
 
-# ---------- misc start-up hygiene ------------------------------------------
-warnings.filterwarnings("default" if opts.show_warnings else "ignore", category=UserWarning)
-warnings.filterwarnings("default" if opts.show_gradio_deprecation_warnings else "ignore",
-                        category=getattr(gradio_extensions, "GradioDeprecationWarning", UserWarning))
+_orig_create = _t2i.txt2img_create_processing     # original signature
+
+def _create_wrapper(id_task, request, *passed):
+    needed = len(inspect.signature(_orig_create).parameters) - 2   # drop id_task,request
+    if len(passed) < needed:
+        passed = list(passed) + [None] * (needed - len(passed))
+    return _orig_create(id_task, request, *passed)
+
+_t2i.txt2img_create_processing = _create_wrapper
+
+
+# ───────── glyph constants many 3p scripts import from modules.ui ──────────
+random_symbol             = '\U0001f3b2\ufe0f'   # 🎲
+reuse_symbol              = '\u267b\ufe0f'       # ♻
+paste_symbol              = '\u2199\ufe0f'       # ↙
+refresh_symbol            = '\U0001f504'         # 🔄
+save_style_symbol         = '\U0001f4be'         # 💾
+apply_style_symbol        = '\U0001f4cb'         # 📋
+clear_prompt_symbol       = '\U0001f5d1\ufe0f'   # 🗑
+extra_networks_symbol     = '\U0001F3B4'         # 🎴
+switch_values_symbol      = '\u21C5'             # ⇅   (used by postprocessing_upscale.py)
+restore_progress_symbol   = '\U0001F300'         # 🌀
+detect_image_size_symbol  = '\U0001F4D0'         # 📐
+
+
+# ───────── stub out features we cut (so settings UI doesn’t explode) ───────
+shared_items.postprocessing_scripts   = lambda: []
+shared_items.realesrgan_models_names  = lambda: []
+shared_items.dat_models_names         = lambda: []
+
+
+# ───────── start-up hygiene ────────────────────────────────────────────────
+warnings.filterwarnings(
+    "default" if opts.show_warnings else "ignore",
+    category=UserWarning
+)
+warnings.filterwarnings(
+    "default" if opts.show_gradio_deprecation_warnings else "ignore",
+    category=getattr(gradio_extensions, "GradioDeprecationWarning", UserWarning)
+)
+
 mimetypes.init()
 mimetypes.add_type('application/javascript', '.js')
 mimetypes.add_type('application/javascript', '.mjs')
 mimetypes.add_type('image/webp', '.webp')
 mimetypes.add_type('image/avif', '.avif')
+
 if not cmd_opts.share and not cmd_opts.listen:
-    gradio.utils.version_check      = lambda: None
+    gradio.utils.version_check = lambda: None
     gradio.utils.get_local_ip_address = lambda: '127.0.0.1'
 
-# ---------------- helpers still required by Txt-2-Img -----------------------
+
+# ───────── helpers still required by txt2img UI ────────────────────────────
 def calc_resolution_hires(enable, w, h, scale, rx, ry):
     if not enable:
         return ""
@@ -1193,45 +1195,55 @@ def calc_resolution_hires(enable, w, h, scale, rx, ry):
     p.calculate_target_resolution()
     n_w = (p.hr_resize_x or p.hr_upscale_to_x) // 8 * 8
     n_h = (p.hr_resize_y or p.hr_upscale_to_y) // 8 * 8
-    return f"from <span class='resolution'>{p.width}x{p.height}</span>" \
-           f" to <span class='resolution'>{n_w}x{n_h}</span>"
+    return (f"from <span class='resolution'>{p.width}x{p.height}</span>"
+            f" to <span class='resolution'>{n_w}x{n_h}</span>")
 
-def update_token_counter(text, steps, styles, *, is_positive=True):
-    p = script_callbacks.BeforeTokenCounterParams(text, steps, styles, is_positive)
-    script_callbacks.before_token_counter_callback(p)
-    text, steps, styles = p.prompt, p.steps, p.styles
+
+def _tok_count(text, steps, styles, is_positive=True):
+    params = script_callbacks.BeforeTokenCounterParams(text, steps, styles, is_positive)
+    script_callbacks.before_token_counter_callback(params)
+    text, steps, styles = params.prompt, params.steps, params.styles
+
     if shared.opts.include_styles_into_token_counters:
-        fn = (shared.prompt_styles.apply_styles_to_prompt if is_positive
-              else shared.prompt_styles.apply_negative_styles_to_prompt)
-        text = fn(text, styles)
+        applier = (shared.prompt_styles.apply_styles_to_prompt
+                   if is_positive else
+                   shared.prompt_styles.apply_negative_styles_to_prompt)
+        text = applier(text, styles)
     else:
         text = comments.strip_comments(text).strip()
+
     try:
         text, _ = extra_networks.parse_prompt(text)
         flat = prompt_parser.get_multicond_prompt_list([text])[1] if is_positive else [text]
         sched = prompt_parser.get_learned_conditioning_prompt_schedules(flat, steps)
     except Exception:
         sched = [[[steps, text]]]
+
     try:
         get_len = sd_models.model_data.sd_model.get_prompt_lengths_on_ui
     except Exception:
         return "<span class='gr-box gr-text-input'>?/?</span>"
-    toks = [get_len(pt)[0] for _, pt in reduce(lambda a, b: a + b, sched)]
-    return f"<span class='gr-box gr-text-input'>{max(toks)}/{get_len(text)[1]}</span>"
 
-def update_negative_prompt_token_counter(*a):
-    return update_token_counter(*a, is_positive=False)
+    token_counts = [get_len(pt)[0] for _, pt in reduce(lambda a, b: a + b, sched)]
+    return f"<span class='gr-box gr-text-input'>{max(token_counts)}/{get_len(text)[1]}</span>"
 
 
-# -- optional REST helpers -------------------------------------------------
+def update_token_counter(*args):
+    return _tok_count(*args, is_positive=True)
+
+
+def update_negative_prompt_token_counter(*args):
+    return _tok_count(*args, is_positive=False)
+
+
+# ───────── placeholder so webui.py’s startup hook succeeds ─────────────────
 def setup_ui_api(app):
-    """Placeholder to satisfy webui.py when running in Txt2Img-only mode."""
-    return
+    pass
 
 
-# ----------------------------- UI ------------------------------------------
+# ───────── txt2img-only UI constructor ─────────────────────────────────────
 def create_ui():
-    import modules.txt2img       # heavy import kept lazy
+    import modules.txt2img  # deferred heavy import
 
     reload_javascript()
     parameters_copypaste.reset()
@@ -1241,11 +1253,15 @@ def create_ui():
     scripts.scripts_current = scripts.scripts_txt2img
     scripts.scripts_txt2img.initialize_scripts(is_img2img=False)
 
+    # ---------- txt2img panel ----------
     with gr.Blocks(analytics_enabled=False) as txt2img_interface:
-        toprow = ui_toprow.Toprow(is_img2img=False,
-                                  is_compact=shared.opts.compact_prompt_box)
 
-        dummy = gr.Textbox(visible=False)
+        toprow = ui_toprow.Toprow(
+            is_img2img=False,
+            is_compact=shared.opts.compact_prompt_box
+        )
+
+        dummy       = gr.Textbox(visible=False)
         batch_count = gr.Slider(visible=False)
         batch_size  = gr.Slider(visible=False)
 
@@ -1253,38 +1269,45 @@ def create_ui():
                              elem_classes=["extra-networks"])
         extra_tabs.__enter__()
 
-        with gr.Tab("Generation", id="txt2img_generation"), ResizeHandleRow(equal_height=False):
+        with gr.Tab("Generation", id="txt2img_generation"), \
+             ResizeHandleRow(equal_height=False):
 
+            # settings column
             with ExitStack() as st:
                 if shared.opts.txt2img_settings_accordion:
                     st.enter_context(gr.Accordion("Open for Settings", open=False))
                 st.enter_context(gr.Column(variant='compact', elem_id="txt2img_settings"))
                 scripts.scripts_txt2img.prepare_ui()
 
+                # prompts
                 toprow.create_inline_toprow_prompts()
 
-                # ----- size row -----
+                # size selectors
                 with FormRow():
                     with gr.Column(scale=4):
                         width  = gr.Slider(64, 2048, step=8, value=512, label="Width")
                         height = gr.Slider(64, 2048, step=8, value=512, label="Height")
-                    with gr.Column(elem_id="txt2img_dimensions_row", scale=1,
+                    with gr.Column(scale=1, elem_id="txt2img_dimensions_row",
                                    elem_classes="dimensions-tools"):
-                        ToolButton(value=switch_values_symbol,
-                                   elem_id="txt2img_res_switch_btn",
-                                   tooltip="Switch width/height")
+                        ToolButton(
+                            value=switch_values_symbol,
+                            elem_id="txt2img_res_switch_btn",
+                            tooltip="Switch width/height"
+                        )
 
-                # ----- cfg row -----
+                # cfg row
                 with gr.Row():
                     dist_cfg = gr.Slider(0.0, 30.0, step=0.1, value=3.5,
                                          label='Distilled CFG Scale')
                     cfg_scale = gr.Slider(1.0, 30.0, step=0.1, value=7.0,
                                           label='CFG Scale')
-                    cfg_scale.change(lambda x: gr.update(interactive=(x != 1)),
-                                     [cfg_scale], [toprow.negative_prompt],
-                                     queue=False, show_progress=False)
+                    cfg_scale.change(
+                        lambda x: gr.update(interactive=(x != 1)),
+                        [cfg_scale], [toprow.negative_prompt],
+                        queue=False, show_progress=False
+                    )
 
-                # ----- hires fix -----
+                # hires fix
                 with gr.Row(elem_id="txt2img_accordions", elem_classes="accordions"):
                     with InputAccordion(False, label="Hires. fix", elem_id="txt2img_hr") as enable_hr:
                         with enable_hr.extra():
@@ -1293,28 +1316,31 @@ def create_ui():
                             hr_upscaler = gr.Dropdown(
                                 label="Upscaler",
                                 choices=[*shared.latent_upscale_modes,
-                                         *[x.name for x in shared.sd_upscalers]],
-                                value=shared.latent_upscale_default_mode)
+                                         *[u.name for u in shared.sd_upscalers]],
+                                value=shared.latent_upscale_default_mode
+                            )
                             hr_steps = gr.Slider(0, 150, step=1, value=0,
                                                  label='Hires steps')
-                            denoise = gr.Slider(0.0, 1.0, step=0.01, value=0.7,
-                                                label='Denoising strength')
+                            denoise  = gr.Slider(0.0, 1.0, step=0.01, value=0.7,
+                                                 label='Denoising strength')
                         with FormRow():
                             hr_scale = gr.Slider(1.0, 4.0, step=0.05, value=2.0,
                                                  label="Upscale by")
-                            hr_rx = gr.Slider(0, 2048, step=8, value=0,
-                                              label="Resize width to")
-                            hr_ry = gr.Slider(0, 2048, step=8, value=0,
-                                              label="Resize height to")
-                        preview_inputs = [enable_hr, width, height,
-                                          hr_scale, hr_rx, hr_ry]
-                        for comp in preview_inputs:
-                            trig = comp.release if isinstance(comp, gr.Slider) else comp.change
-                            trig(calc_resolution_hires, preview_inputs, [hr_final],
-                                 show_progress=False)
+                            hr_rx    = gr.Slider(0, 2048, step=8, value=0,
+                                                 label="Resize width to")
+                            hr_ry    = gr.Slider(0, 2048, step=8, value=0,
+                                                 label="Resize height to")
 
+                        preview_in = [enable_hr, width, height, hr_scale, hr_rx, hr_ry]
+                        for comp in preview_in:
+                            trig = comp.release if isinstance(comp, gr.Slider) else comp.change
+                            trig(calc_resolution_hires, preview_in, [hr_final], show_progress=False)
+
+            # output panel
             panel = ui_common.create_output_panel(
-                "txt2img", opts.outdir_txt2img_samples, toprow
+                "txt2img",
+                opts.outdir_txt2img_samples,
+                toprow
             )
 
             txt2img_inputs = [
@@ -1325,20 +1351,25 @@ def create_ui():
                 enable_hr, denoise, hr_scale, hr_upscaler, hr_steps,
                 hr_rx, hr_ry
             ]
-            txt2img_outputs = [panel.gallery, panel.generation_info,
-                               panel.infotext, panel.html_log]
-            args = dict(
+            txt2img_outputs = [
+                panel.gallery, panel.generation_info,
+                panel.infotext, panel.html_log
+            ]
+
+            call_args = dict(
                 fn=wrap_gradio_gpu_call(modules.txt2img.txt2img,
                                         extra_outputs=[None, '', '']),
-                _js="submit", inputs=txt2img_inputs,
-                outputs=txt2img_outputs, show_progress=False
+                _js="submit",
+                inputs=txt2img_inputs,
+                outputs=txt2img_outputs,
+                show_progress=False
             )
-            toprow.prompt.submit(**args)
-            toprow.submit.click(**args)
+            toprow.prompt.submit(**call_args)
+            toprow.submit.click(**call_args)
 
-            _s = scripts.scripts_txt2img.script('Sampler')
-            steps = _s.steps if _s else gr.Slider(minimum=1, maximum=150, step=1,
-                                                  value=30, visible=False)
+            # live token counters
+            sampler_script = scripts.scripts_txt2img.script('Sampler')
+            steps = sampler_script.steps if sampler_script else 20
             toprow.ui_styles.dropdown.change(
                 wrap_queued_call(update_token_counter),
                 [toprow.prompt, steps, toprow.ui_styles.dropdown],
@@ -1352,29 +1383,32 @@ def create_ui():
 
         extra_tabs.__exit__()
 
-    # ------------- master Blocks with Settings tab --------------------------
-    loadsave  = ui_loadsave.UiLoadsave(cmd_opts.ui_config_file)
-    settings  = ui_settings.UiSettings()
+    # ---------- top-level Blocks with a Settings tab ----------
+    loadsave = ui_loadsave.UiLoadsave(cmd_opts.ui_config_file)
+    settings = ui_settings.UiSettings()
     settings.register_settings()
     settings.create_ui(loadsave, gr.State())
 
-    with gr.Blocks(theme=shared.gradio_theme, analytics_enabled=False,
-                   title="Stable Diffusion – Forge (txt2img-only)") as demo:
+    with gr.Blocks(
+        theme=shared.gradio_theme,
+        analytics_enabled=False,
+        title="Stable Diffusion – Forge (txt2img-only)"
+    ) as demo:
 
         settings.add_quicksettings()
-        # --- patch paste-params helper (txt2img-only build) -------------------------
+
+        # minimal patch so “paste params” helper doesn’t expect img2img fields
         parameters_copypaste.connect_paste_params_buttons = lambda *_, **__: None
         import modules.infotext_utils as _it
         _it.paste_fields.setdefault("txt2img", {"fields": {}})
 
         with gr.Tabs(elem_id="tabs"):
-            for iface, lbl in ((txt2img_interface, "Txt2img"),
-                               (settings.interface, "Settings")):
-                with gr.TabItem(lbl):
-                    iface.render()
+            with gr.TabItem("Txt2img"):
+                txt2img_interface.render()
+            with gr.TabItem("Settings"):
+                settings.interface.render()
 
         settings.add_functionality(demo)
-        # main_entry.forge_main_entry()
 
     return demo
-# ------------------------------------------------
+# ---------------------------------------------------------------------------
