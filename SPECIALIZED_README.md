@@ -60,6 +60,8 @@ Run `colab_interface.py` in Google Colab. The launcher:
   its PyTorch pin are not compatible with Colab's Python 3.12 runtime;
 - pins compatible Python build tools and disables build isolation for Forge's
   legacy OpenAI CLIP revision;
+- replaces Colab's notebook-only Matplotlib backend with the headless `Agg`
+  backend inside Forge's isolated environment;
 - creates model and output directories;
 - reads `CIVITAI_API_TOKEN` and `HF_TOKEN` from Colab Secrets;
 - enables Gradio authentication by default;

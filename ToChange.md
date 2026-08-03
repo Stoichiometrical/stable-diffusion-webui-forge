@@ -22,6 +22,9 @@
 > automatic destination now considers a selected secondary file's type, so a
 > VAE attached to a checkpoint version is installed in `models/VAE` rather
 > than `models/Stable-diffusion`.
+> Current Colab also exports a notebook-only `MPLBACKEND` value that is not
+> available inside the isolated Forge venv. The launcher now selects the
+> headless Matplotlib `Agg` backend before starting Forge.
 
 ## Purpose of this document
 

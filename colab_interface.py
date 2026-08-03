@@ -344,6 +344,10 @@ def configure_environment():
     os.environ["PYTHONWARNINGS"] = "ignore"
     os.environ["PYTHONUNBUFFERED"] = "1"
     os.environ["WEBUI_LAUNCH_LIVE_OUTPUT"] = "1"
+    # Colab exports its notebook-only inline backend. Forge runs in an
+    # isolated venv that intentionally does not contain matplotlib-inline, so
+    # use Matplotlib's non-interactive backend for this headless web server.
+    os.environ["MPLBACKEND"] = "Agg"
     # Build this legacy package with the compatible setuptools already pinned
     # in the Forge venv instead of pip's latest isolated build dependency.
     os.environ["CLIP_PACKAGE"] = f"--no-build-isolation {CLIP_ARCHIVE_URL}"
