@@ -73,12 +73,26 @@ def _select_file(version, file_id):
     raise ValueError("This model version has no downloadable files.")
 
 
-def _automatic_destination(version):
+def _automatic_destination(version, selected):
+    # A checkpoint version can contain secondary files of another type (most
+    # commonly a VAE). Prefer that explicit file type before falling back to
+    # the parent model type used for normal checkpoint/LoRA files.
+    file_type = str(selected.get("type", "")).lower().replace(" ", "")
+    file_mapping = {
+        "vae": "VAE",
+        "textualinversion": "Embedding",
+        "embedding": "Embedding",
+    }
+    if file_type in file_mapping:
+        return file_mapping[file_type]
+
     model_type = str((version.get("model") or {}).get("type", "")).lower()
     mapping = {
         "checkpoint": "Checkpoint",
         "lora": "LoRA",
         "locon": "LoRA",
+        "dora": "LoRA",
+        "lycoris": "LoRA",
         "vae": "VAE",
         "textualinversion": "Embedding",
         "embedding": "Embedding",
@@ -117,7 +131,7 @@ def download_model(identifier, identifier_type, destination, file_id, custom_fil
         progress(0, desc="Reading Civitai metadata")
         version = _resolve_version(identifier, identifier_type, token)
         selected = _select_file(version, file_id)
-        destination = _automatic_destination(version) if destination == "Automatic" else destination
+        destination = _automatic_destination(version, selected) if destination == "Automatic" else destination
 
         filename = _safe_filename(custom_filename or selected.get("name"))
         extension = Path(filename).suffix.lower()

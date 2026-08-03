@@ -32,19 +32,35 @@ def _prepare_gpu():
 
     if not torch.cuda.is_available():
         raise RuntimeError("Video generation requires a CUDA GPU. In Colab, select a GPU runtime first.")
+
+    # Forge's normal unload moves weights off the GPU but intentionally keeps
+    # the model object available for fast reuse. A CPU-offloaded video pipeline
+    # needs that system RAM, so release the image model and invalidate Forge's
+    # hash. The next image generation will rebuild it from the selected
+    # checkpoint using the existing forge_loading_parameters.
     sd_models.unload_model_weights()
+    forge_model = sd_models.model_data.get_sd_model()
+    if forge_model is not None and not isinstance(forge_model, sd_models.FakeInitialModel):
+        # Retain Forge's tiny placeholder so prompt counters and other UI code
+        # remain safe while no real checkpoint object is resident.
+        sd_models.model_data.set_sd_model(sd_models.FakeInitialModel())
+        sd_models.model_data.forge_hash = ""
+    del forge_model
     gc.collect()
     torch.cuda.empty_cache()
     return torch
 
 
-def _cleanup(pipe=None):
+def _release_pipeline(pipe):
     if pipe is not None:
         try:
             pipe.maybe_free_model_hooks()
         except Exception:
             pass
-        del pipe
+    return None
+
+
+def _cleanup():
     gc.collect()
     try:
         import torch
@@ -99,7 +115,8 @@ def text_to_video(prompt, negative_prompt, model_id, frames, steps, guidance, se
     except Exception as error:
         return None, f"Video generation failed: {type(error).__name__}: {error}"
     finally:
-        _cleanup(pipe)
+        pipe = _release_pipeline(pipe)
+        _cleanup()
         VIDEO_LOCK.release()
 
 
@@ -144,7 +161,8 @@ def image_to_video(image, model_id, frames, steps, motion, noise, seed, fps, dec
     except Exception as error:
         return None, f"Video generation failed: {type(error).__name__}: {error}"
     finally:
-        _cleanup(pipe)
+        pipe = _release_pipeline(pipe)
+        _cleanup()
         VIDEO_LOCK.release()
 
 

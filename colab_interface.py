@@ -14,6 +14,7 @@ import importlib.util
 import os
 import re
 import secrets
+import shutil
 import subprocess
 import sys
 from collections import deque
@@ -65,6 +66,10 @@ LORA_DIR = MODELS_DIR / "Lora"
 EMBEDDING_DIR = REPO_DIR / "embeddings"
 LOCAL_OUTPUT_DIR = REPO_DIR / "outputs"
 FORGE_VENV_DIR = ROOT_DIR / "forge-python-3.11"
+CLIP_ARCHIVE_URL = (
+    "https://github.com/openai/CLIP/archive/"
+    "d50d76daa670286dd6cacf3bcd80b5e4823fc8e1.zip"
+)
 
 DESTINATIONS = {
     "checkpoint": CHECKPOINT_DIR,
@@ -139,6 +144,31 @@ def install_system_dependencies():
     run(["apt-get", "install", "-y", "-qq", "aria2", "ffmpeg", "lz4"])
 
 
+def require_nvidia_gpu():
+    nvidia_smi = shutil.which("nvidia-smi")
+    if not nvidia_smi:
+        raise RuntimeError(
+            "No NVIDIA GPU is attached to this Colab runtime. Open Runtime > Change runtime type, "
+            "select a T4, L4, or A100 GPU, save, and run the launcher again in the new runtime."
+        )
+
+    try:
+        gpu = subprocess.check_output(
+            [nvidia_smi, "--query-gpu=name,memory.total,driver_version", "--format=csv,noheader"],
+            text=True,
+            stderr=subprocess.STDOUT,
+        ).strip()
+    except subprocess.CalledProcessError as error:
+        raise RuntimeError(
+            "Colab exposes nvidia-smi, but the NVIDIA driver is unavailable. Restart the GPU runtime "
+            "and run the launcher again."
+        ) from error
+
+    if not gpu:
+        raise RuntimeError("No NVIDIA GPU was reported by Colab. Select a GPU runtime and try again.")
+    print(f"Colab GPU: {gpu}")
+
+
 def prepare_forge_python():
     """Create a Python 3.11 environment compatible with this Forge revision."""
     uv_command = [sys.executable, "-m", "uv"]
@@ -160,6 +190,18 @@ def prepare_forge_python():
     ).strip()
     if version != "3.11":
         raise RuntimeError(f"Expected Forge Python 3.11, but {python_executable} reports {version}.")
+
+    # Forge pins an older CLIP revision whose setup imports pkg_resources.
+    # Modern isolated builds select a setuptools release that removed it, so
+    # keep the venv's build tools compatible before Forge installs packages.
+    run([
+        python_executable,
+        "-m", "pip", "install", "--quiet",
+        "pip==25.2",
+        "setuptools==69.5.1",
+        "wheel",
+        "packaging",
+    ])
 
     print(f"Forge Python: {python_executable} ({version})")
     return python_executable
@@ -302,6 +344,9 @@ def configure_environment():
     os.environ["PYTHONWARNINGS"] = "ignore"
     os.environ["PYTHONUNBUFFERED"] = "1"
     os.environ["WEBUI_LAUNCH_LIVE_OUTPUT"] = "1"
+    # Build this legacy package with the compatible setuptools already pinned
+    # in the Forge venv instead of pip's latest isolated build dependency.
+    os.environ["CLIP_PACKAGE"] = f"--no-build-isolation {CLIP_ARCHIVE_URL}"
 
     civitai_token = read_secret("CIVITAI_API_TOKEN")
     hf_token = read_secret("HF_TOKEN")
@@ -342,6 +387,7 @@ def launch_webui(python_executable):
 def main():
     print("Preparing Forge Image and Video Studio for Google Colab...")
     install_system_dependencies()
+    require_nvidia_gpu()
     python_executable = prepare_forge_python()
     install_or_update_repository()
     configure_environment()

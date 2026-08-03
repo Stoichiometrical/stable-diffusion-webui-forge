@@ -12,6 +12,17 @@
 > Python 3.11 environment at `/content/forge-python-3.11`, and launches Forge
 > from it. It also enables live Forge installer output for easier diagnosis.
 
+> **Additional Colab fixes:** The launcher now verifies that an NVIDIA GPU is
+> attached before installation. It pins pip/setuptools build tooling and uses
+> the venv's setuptools for Forge's legacy OpenAI CLIP revision, avoiding the
+> incompatible isolated build that fails on current Colab. Video startup now
+> fully releases Forge's image model from CPU RAM and invalidates its model
+> cache so the selected checkpoint reloads on the next image job.
+> The Civitai downloader was also checked against the live public API. Its
+> automatic destination now considers a selected secondary file's type, so a
+> VAE attached to a checkpoint version is installed in `models/VAE` rather
+> than `models/Stable-diffusion`.
+
 ## Purpose of this document
 
 This document is the handoff for reproducing the work in the actual

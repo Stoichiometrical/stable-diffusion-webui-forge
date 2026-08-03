@@ -35,7 +35,9 @@ LoRA selector if the item is not shown immediately.
 
 Video support is separate from Forge's image checkpoint loader. Models are
 downloaded from Hugging Face on the first job and unloaded after every job to
-return GPU memory to Forge.
+return GPU and CPU memory to Forge. Starting a video job also fully releases
+the current Forge image model; the selected checkpoint is loaded again on the
+next image-generation job.
 
 Defaults:
 
@@ -56,11 +58,17 @@ Run `colab_interface.py` in Google Colab. The launcher:
 - installs `aria2`, `ffmpeg`, and `lz4`;
 - creates an isolated Python 3.11 environment because this Forge revision and
   its PyTorch pin are not compatible with Colab's Python 3.12 runtime;
+- pins compatible Python build tools and disables build isolation for Forge's
+  legacy OpenAI CLIP revision;
 - creates model and output directories;
 - reads `CIVITAI_API_TOKEN` and `HF_TOKEN` from Colab Secrets;
 - enables Gradio authentication by default;
 - launches with external extensions disabled; and
 - preserves an existing checkout instead of deleting it.
+
+Before running it, select **Runtime > Change runtime type > T4 GPU** (or L4/A100).
+The launcher stops early with a clear error if Colab has not attached an NVIDIA
+GPU.
 
 Add secrets through Colab's key icon instead of putting tokens in source code.
 Anyone who previously stored a Civitai token in the launcher should revoke it
