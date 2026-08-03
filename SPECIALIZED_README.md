@@ -54,6 +54,8 @@ Run `colab_interface.py` in Google Colab. The launcher:
 
 - clones or fast-forward updates the `main` branch;
 - installs `aria2`, `ffmpeg`, and `lz4`;
+- creates an isolated Python 3.11 environment because this Forge revision and
+  its PyTorch pin are not compatible with Colab's Python 3.12 runtime;
 - creates model and output directories;
 - reads `CIVITAI_API_TOKEN` and `HF_TOKEN` from Colab Secrets;
 - enables Gradio authentication by default;

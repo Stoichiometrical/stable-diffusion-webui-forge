@@ -6,6 +6,12 @@
 > below have now been implemented. Static validation passed; CUDA/Colab
 > end-to-end generation tests remain pending.
 
+> **Colab compatibility fix:** Current Colab reported Python 3.12 at
+> `/usr/bin/python3`, while this Forge revision supports Python through 3.11
+> and pins PyTorch 2.3.1. The launcher now installs `uv`, creates an isolated
+> Python 3.11 environment at `/content/forge-python-3.11`, and launches Forge
+> from it. It also enables live Forge installer output for easier diagnosis.
+
 ## Purpose of this document
 
 This document is the handoff for reproducing the work in the actual

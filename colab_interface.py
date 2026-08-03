@@ -10,6 +10,7 @@ Do not paste API tokens directly into this source file.
 """
 
 import json
+import importlib.util
 import os
 import re
 import secrets
@@ -62,6 +63,7 @@ VAE_DIR = MODELS_DIR / "VAE"
 LORA_DIR = MODELS_DIR / "Lora"
 EMBEDDING_DIR = REPO_DIR / "embeddings"
 LOCAL_OUTPUT_DIR = REPO_DIR / "outputs"
+FORGE_VENV_DIR = ROOT_DIR / "forge-python-3.11"
 
 DESTINATIONS = {
     "checkpoint": CHECKPOINT_DIR,
@@ -71,7 +73,7 @@ DESTINATIONS = {
 }
 
 
-def run(command, cwd=None):
+def run(command, cwd=None, env=None):
     """Run a command with live output and fail immediately on errors."""
     display_parts = []
     redact_next = False
@@ -81,7 +83,7 @@ def run(command, cwd=None):
         redact_next = value == "--gradio-auth"
     printable = " ".join(display_parts)
     print(f"\n> {printable}")
-    subprocess.run([str(part) for part in command], cwd=cwd, check=True)
+    subprocess.run([str(part) for part in command], cwd=cwd, env=env, check=True)
 
 
 def read_secret(name):
@@ -98,6 +100,32 @@ def read_secret(name):
 def install_system_dependencies():
     run(["apt-get", "update", "-qq"])
     run(["apt-get", "install", "-y", "-qq", "aria2", "ffmpeg", "lz4"])
+
+
+def prepare_forge_python():
+    """Create a Python 3.11 environment compatible with this Forge revision."""
+    uv_command = [sys.executable, "-m", "uv"]
+    if importlib.util.find_spec("uv") is None:
+        run([sys.executable, "-m", "pip", "install", "--quiet", "--upgrade", "uv"])
+
+    python_executable = FORGE_VENV_DIR / "bin" / "python"
+    if not python_executable.exists():
+        run(uv_command + [
+            "venv",
+            "--python", "3.11",
+            "--seed",
+            str(FORGE_VENV_DIR),
+        ])
+
+    version = subprocess.check_output(
+        [str(python_executable), "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"],
+        text=True,
+    ).strip()
+    if version != "3.11":
+        raise RuntimeError(f"Expected Forge Python 3.11, but {python_executable} reports {version}.")
+
+    print(f"Forge Python: {python_executable} ({version})")
+    return python_executable
 
 
 def install_or_update_repository():
@@ -235,6 +263,8 @@ def configure_environment():
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "garbage_collection_threshold:0.9,max_split_size_mb:512"
     os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
     os.environ["PYTHONWARNINGS"] = "ignore"
+    os.environ["PYTHONUNBUFFERED"] = "1"
+    os.environ["WEBUI_LAUNCH_LIVE_OUTPUT"] = "1"
 
     civitai_token = read_secret("CIVITAI_API_TOKEN")
     hf_token = read_secret("HF_TOKEN")
@@ -245,10 +275,11 @@ def configure_environment():
     return civitai_token
 
 
-def launch_webui():
+def launch_webui(python_executable):
     password = GRADIO_PASSWORD or secrets.token_urlsafe(12)
     args = [
-        sys.executable,
+        python_executable,
+        "-u",
         "launch.py",
         "--share",
         "--listen",
@@ -274,6 +305,7 @@ def launch_webui():
 def main():
     print("Preparing Forge Image and Video Studio for Google Colab...")
     install_system_dependencies()
+    python_executable = prepare_forge_python()
     install_or_update_repository()
     configure_environment()
     output_dir = mount_output_directory()
@@ -291,7 +323,7 @@ def main():
     print(f"Outputs: {output_dir}")
     print("Use the Download Models tab to add checkpoints, LoRAs, VAEs, or embeddings by Civitai ID.")
     print("The first video generation downloads its Hugging Face pipeline and may take several minutes.")
-    launch_webui()
+    launch_webui(python_executable)
 
 
 if __name__ == "__main__":
