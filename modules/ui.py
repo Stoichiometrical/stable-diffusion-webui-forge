@@ -13,7 +13,7 @@ from PIL import Image, PngImagePlugin  # noqa: F401
 from modules.call_queue import wrap_gradio_gpu_call, wrap_queued_call, wrap_gradio_call, wrap_gradio_call_no_job # noqa: F401
 
 from modules import gradio_extensions, sd_schedulers  # noqa: F401
-from modules import sd_hijack, sd_models, script_callbacks, ui_extensions, deepbooru, extra_networks, ui_common, ui_postprocessing, progress, ui_loadsave, shared_items, ui_settings, timer, sysinfo, ui_checkpoint_merger, scripts, sd_samplers, processing, ui_extra_networks, ui_toprow, launch_utils
+from modules import sd_hijack, sd_models, script_callbacks, deepbooru, extra_networks, ui_common, progress, ui_loadsave, shared_items, ui_settings, timer, sysinfo, scripts, sd_samplers, processing, ui_extra_networks, ui_toprow, launch_utils
 from modules.ui_components import FormRow, FormGroup, ToolButton, FormHTML, InputAccordion, ResizeHandleRow
 from modules.paths import script_path
 from modules.ui_common import create_refresh_button
@@ -26,7 +26,7 @@ import modules.shared as shared
 from modules import prompt_parser
 from modules.infotext_utils import image_from_url_text, PasteField
 from modules_forge.forge_canvas.canvas import ForgeCanvas, canvas_head
-from modules_forge import main_entry, forge_space
+from modules_forge import main_entry
 import modules.processing_scripts.comments as comments
 
 
@@ -916,38 +916,11 @@ def create_ui():
 
         extra_tabs.__exit__()
 
-    with gr.Blocks(analytics_enabled=False, head=canvas_head) as space_interface:
-        forge_space.main_entry()
-
     scripts.scripts_current = None
 
-    with gr.Blocks(analytics_enabled=False) as extras_interface:
-        ui_postprocessing.create_ui()
-
-    with gr.Blocks(analytics_enabled=False) as pnginfo_interface:
-        with ResizeHandleRow(equal_height=False):
-            with gr.Column(variant='panel'):
-                image = gr.Image(elem_id="pnginfo_image", label="Source", source="upload", interactive=True, type="pil", height="50vh", image_mode="RGBA")
-
-            with gr.Column(variant='panel'):
-                html = gr.HTML()
-                generation_info = gr.Textbox(visible=False, elem_id="pnginfo_generation_info")
-                html2 = gr.HTML()
-                with gr.Row():
-                    buttons = parameters_copypaste.create_buttons(["txt2img", "img2img", "inpaint", "extras"])
-
-                for tabname, button in buttons.items():
-                    parameters_copypaste.register_paste_params_button(parameters_copypaste.ParamBinding(
-                        paste_button=button, tabname=tabname, source_text_component=generation_info, source_image_component=image,
-                    ))
-
-        image.change(
-            fn=wrap_gradio_call_no_job(modules.extras.run_pnginfo),
-            inputs=[image],
-            outputs=[html, generation_info, html2],
-        )
-
-    modelmerger_ui = ui_checkpoint_merger.UiCheckpointMerger()
+    from modules import ui_civitai, ui_video
+    civitai_interface = ui_civitai.create_ui()
+    video_interface = ui_video.create_ui()
 
     loadsave = ui_loadsave.UiLoadsave(cmd_opts.ui_config_file)
     ui_settings_from_file = loadsave.ui_settings.copy()
@@ -955,25 +928,18 @@ def create_ui():
     settings.create_ui(loadsave, dummy_component)
 
     interfaces = [
-        (txt2img_interface, "Txt2img", "txt2img"),
-        (img2img_interface, "Img2img", "img2img"),
-        (space_interface, "Spaces", "space"),
-        (extras_interface, "Extras", "extras"),
-        (pnginfo_interface, "PNG Info", "pnginfo"),
-        (modelmerger_ui.blocks, "Checkpoint Merger", "modelmerger"),
+        (txt2img_interface, "Text to Image", "txt2img"),
+        (img2img_interface, "Image to Image", "img2img"),
+        (video_interface, "Video", "video"),
+        (civitai_interface, "Download Models", "civitai"),
     ]
-
-    interfaces += script_callbacks.ui_tabs_callback()
     interfaces += [(settings.interface, "Settings", "settings")]
-
-    extensions_interface = ui_extensions.create_ui()
-    interfaces += [(extensions_interface, "Extensions", "extensions")]
 
     shared.tab_names = []
     for _interface, label, _ifid in interfaces:
         shared.tab_names.append(label)
 
-    with gr.Blocks(theme=shared.gradio_theme, analytics_enabled=False, title="Stable Diffusion", head=canvas_head) as demo:
+    with gr.Blocks(theme=shared.gradio_theme, analytics_enabled=False, title="Forge Image and Video Studio", head=canvas_head) as demo:
         quicksettings_row = settings.add_quicksettings()
 
         parameters_copypaste.connect_paste_params_buttons()
@@ -988,7 +954,7 @@ def create_ui():
                 with gr.TabItem(label, id=ifid, elem_id=f"tab_{ifid}"):
                     interface.render()
 
-                if ifid not in ["extensions", "settings"]:
+                if ifid != "settings":
                     loadsave.add_block(interface, ifid)
 
             loadsave.add_component(f"webui/Tabs@{tabs.elem_id}", tabs)
@@ -1013,8 +979,6 @@ def create_ui():
         update_image_cfg_scale_visibility = lambda: gr.update(visible=False)
         settings.text_settings.change(fn=update_image_cfg_scale_visibility, inputs=[], outputs=[image_cfg_scale])
         demo.load(fn=update_image_cfg_scale_visibility, inputs=[], outputs=[image_cfg_scale])
-
-        modelmerger_ui.setup_ui(dummy_component=dummy_component, sd_model_checkpoint_component=main_entry.ui_checkpoint)
 
         main_entry.forge_main_entry()
 

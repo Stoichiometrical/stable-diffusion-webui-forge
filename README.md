@@ -1,3 +1,12 @@
+# Forge Image and Video Studio
+
+This fork specializes Stable Diffusion WebUI Forge for text-to-image,
+image-to-image, experimental text/image-to-video, and simple Civitai model
+downloads. See [SPECIALIZED_README.md](SPECIALIZED_README.md) for setup,
+security, Colab, and usage details.
+
+The upstream Forge documentation is retained below for technical reference.
+
 # Stable Diffusion WebUI Forge
 
 Stable Diffusion WebUI Forge is a platform on top of [Stable Diffusion WebUI](https://github.com/AUTOMATIC1111/stable-diffusion-webui) (based on [Gradio](https://www.gradio.app/) <a href='https://github.com/gradio-app/gradio'><img src='https://img.shields.io/github/stars/gradio-app/gradio'></a>) to make development easier, optimize resource management, speed up inference, and study experimental features.
