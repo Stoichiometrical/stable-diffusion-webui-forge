@@ -25,6 +25,9 @@
 > Current Colab also exports a notebook-only `MPLBACKEND` value that is not
 > available inside the isolated Forge venv. The launcher now selects the
 > headless Matplotlib `Agg` backend before starting Forge.
+> The legacy Postprocessing settings are now hidden while their defaults remain
+> registered. This prevents Settings from iterating the uninitialized Extras
+> postprocessing script list in the specialized UI.
 
 ## Purpose of this document
 

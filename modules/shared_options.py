@@ -418,7 +418,10 @@ options_templates.update(options_section(('sampler-params', "Sampler parameters"
     'beta_dist_beta': OptionInfo(0.6, "Beta scheduler - beta", gr.Slider, {"minimum": 0.01, "maximum": 1.0, "step": 0.01}, infotext='Beta scheduler beta').info('Default = 0.6; the beta parameter of the beta distribution used in Beta sampling'),
 }))
 
-options_templates.update(options_section(('postprocessing', "Postprocessing", "postprocessing"), {
+# Extras/postprocessing is intentionally not initialized by the specialized
+# UI. Keep these defaults for scripts that read them, but use a hidden section
+# so Settings does not evaluate component choices from scripts_postproc=None.
+options_templates.update(options_section((None, "Postprocessing"), {
     'postprocessing_enable_in_main_ui': OptionInfo([], "Enable postprocessing operations in txt2img and img2img tabs", ui_components.DropdownMulti, lambda: {"choices": [x.name for x in shared_items.postprocessing_scripts()]}),
     'postprocessing_disable_in_extras': OptionInfo([], "Disable postprocessing operations in extras tab", ui_components.DropdownMulti, lambda: {"choices": [x.name for x in shared_items.postprocessing_scripts()]}),
     'postprocessing_operation_order': OptionInfo([], "Postprocessing operation order", ui_components.DropdownMulti, lambda: {"choices": [x.name for x in shared_items.postprocessing_scripts()]}),

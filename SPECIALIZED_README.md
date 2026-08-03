@@ -13,6 +13,10 @@ extension installation, ControlNet preprocessors, and unrelated bundled tools.
 Their upstream files remain in the repository for import stability, but the
 modules are disabled and not exposed to users.
 
+Legacy postprocessing option defaults remain registered for compatibility but
+their Settings section is hidden because the removed Extras interface no
+longer initializes the postprocessing script list.
+
 ## Civitai downloads
 
 Open **Download Models** and provide:

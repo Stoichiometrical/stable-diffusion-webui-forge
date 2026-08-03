@@ -19,7 +19,8 @@ def dat_models_names():
 def postprocessing_scripts():
     import modules.scripts
 
-    return modules.scripts.scripts_postproc.scripts
+    runner = modules.scripts.scripts_postproc
+    return runner.scripts if runner is not None else []
 
 
 def sd_vae_items():
