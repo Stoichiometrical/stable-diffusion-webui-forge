@@ -16,6 +16,7 @@ import re
 import secrets
 import subprocess
 import sys
+from collections import deque
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -73,7 +74,7 @@ DESTINATIONS = {
 }
 
 
-def run(command, cwd=None, env=None):
+def run(command, cwd=None, env=None, stream_output=False):
     """Run a command with live output and fail immediately on errors."""
     display_parts = []
     redact_next = False
@@ -83,7 +84,43 @@ def run(command, cwd=None, env=None):
         redact_next = value == "--gradio-auth"
     printable = " ".join(display_parts)
     print(f"\n> {printable}")
-    subprocess.run([str(part) for part in command], cwd=cwd, env=env, check=True)
+    command = [str(part) for part in command]
+    if not stream_output:
+        subprocess.run(command, cwd=cwd, env=env, check=True)
+        return
+
+    recent_output = deque(maxlen=200)
+    process = subprocess.Popen(
+        command,
+        cwd=cwd,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        bufsize=1,
+    )
+    assert process.stdout is not None
+    try:
+        for line in process.stdout:
+            print(line, end="", flush=True)
+            recent_output.append(line)
+        return_code = process.wait()
+    except BaseException:
+        process.terminate()
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+        raise
+    if return_code:
+        tail = "".join(recent_output).strip()
+        raise RuntimeError(
+            f"Command failed with exit status {return_code}: {printable}\n\n"
+            f"Last output from the failed process:\n{tail or '(the process produced no output)'}"
+        )
 
 
 def read_secret(name):
@@ -299,7 +336,7 @@ def launch_webui(python_executable):
     else:
         print("\nWARNING: Gradio authentication is disabled. Anyone with the share URL can use the GPU session.")
 
-    run(args, cwd=REPO_DIR)
+    run(args, cwd=REPO_DIR, stream_output=True)
 
 
 def main():
